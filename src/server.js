@@ -20,6 +20,7 @@ import { ensurePlansSeeded } from './services/planService.js';
 import { ensureCommissionSettingsSeeded } from './services/commissionService.js';
 import mlmRouter from './routes/mlmRoute.js';
 import tempClearRouter from './routes/tempClearRoute.js';
+import { prisma } from './prisma/client.js';
 // import tempClearRouter from './routes/tempClearRoute.js';
 // …
 
@@ -73,6 +74,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', name: env.APP_NAME, env: env.NODE_ENV });
 });
 
+// Optional DB health probe
+app.get('/health/db', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok' });
+  } catch (e) {
+    res.status(503).json({ status: 'error', error: e?.message || String(e) });
+  }
+});
+
 // Seed plans from env at startup (idempotent)
 ensurePlansSeeded().catch((e) => {
   console.error('Plan seeding failed:', e?.message || e);
@@ -110,6 +121,10 @@ app.use(express.json());
 // Error handler
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  // Always log the full error server-side for diagnostics
+  try {
+    console.error('[ERROR]', req.method, req.originalUrl, err && err.stack ? err.stack : err);
+  } catch (_) {}
   const status = err.status || 500;
   const payload = {
     ok: false,
