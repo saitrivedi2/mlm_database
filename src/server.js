@@ -31,7 +31,30 @@ const app = express();
 // app.use('/temp', tempClearRouter);
 app.set('trust proxy', 1);
 app.use(helmet());
-app.use(cors({ origin: env.APP_URL, credentials: true }));
+
+// Flexible CORS: supports allow-all or comma-separated allowlist via env
+const corsOrigins = String(env.CORS_ORIGINS || env.APP_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+const allowAll = corsOrigins.includes('*') || corsOrigins.includes('any');
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests without Origin (mobile apps, Postman)
+    if (!origin) return callback(null, true);
+    if (allowAll || corsOrigins.length === 0) return callback(null, true);
+    if (corsOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  credentials: env.CORS_CREDENTIALS,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 // Capture raw body for webhook signature verification
 app.use(express.json({ verify: (req, _res, buf) => { try { req.rawBody = buf.toString('utf8'); } catch (_) {} } }));
 app.use(cookieParser());

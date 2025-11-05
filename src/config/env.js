@@ -6,6 +6,9 @@ export const env = {
   PORT: process.env.PORT || 3000,
   APP_NAME: process.env.APP_NAME || 'MLM Auth',
   APP_URL: process.env.APP_URL || 'http://localhost:3000',
+  // CORS
+  CORS_ORIGINS: process.env.CORS_ORIGINS, // comma-separated, e.g. "http://localhost:3000,https://app.example.com" or "*" to allow all
+  CORS_CREDENTIALS: String(process.env.CORS_CREDENTIALS || 'true') === 'true',
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET || 'change-me-please',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
