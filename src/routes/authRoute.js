@@ -39,4 +39,17 @@ router.post('/forgot-password/reset', resetPassword);
 router.post('/forgot-pin/request-otp', forgotPinRequestOtp);
 router.post('/forgot-pin/reset', resetPin);
 
+// Quick availability probe to help clients pre-check uniqueness
+router.get('/availability', async (req, res, next) => {
+  try {
+    const { prisma } = await import('../prisma/client.js');
+    const { username, email, phone } = req.query || {};
+    const checks = {};
+    if (username) checks.username = !(await prisma.user.findUnique({ where: { username: String(username).trim() } }));
+    if (email) checks.email = !(await prisma.user.findUnique({ where: { email: String(email).trim().toLowerCase() } }));
+    if (phone) checks.phone = !(await prisma.user.findUnique({ where: { phone: String(phone).trim().replace(/[\s\-()]/g, '') } }));
+    res.json({ ok: true, available: checks });
+  } catch (err) { next(err); }
+});
+
 export default router;

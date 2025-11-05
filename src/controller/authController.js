@@ -49,16 +49,45 @@ async function sendOtpEmail(to, code) {
 
 async function findUserByIdentifier(identifier) {
   if (!identifier) return null;
-  if (identifier.includes('@')) {
-    return prisma.user.findUnique({ where: { email: identifier } });
+  const { email: normEmail, phone: normPhone } = normalizeIdentifier(identifier);
+  if (normEmail) {
+    return prisma.user.findUnique({ where: { email: normEmail } });
   }
-  return prisma.user.findUnique({ where: { phone: identifier } });
+  return prisma.user.findUnique({ where: { phone: normPhone } });
+}
+
+function normalizeUsername(value) {
+  if (typeof value !== 'string') return null;
+  const t = value.trim();
+  return t.length ? t : null;
+}
+
+function normalizeEmail(value) {
+  if (typeof value !== 'string') return null;
+  const t = value.trim().toLowerCase();
+  return t.length ? t : null;
+}
+
+function normalizePhone(value) {
+  if (typeof value !== 'string') return null;
+  const t = value.trim().replace(/[\s\-()]/g, '');
+  return t.length ? t : null;
+}
+
+function normalizeIdentifier(identifier) {
+  if (typeof identifier !== 'string') return { email: null, phone: null };
+  const trimmed = identifier.trim();
+  if (trimmed.includes('@')) return { email: normalizeEmail(trimmed), phone: null };
+  return { email: null, phone: normalizePhone(trimmed) };
 }
 
 // Generic OTP request (EMAIL/PHONE)
 export async function requestOtp(req, res, next) {
   try {
-    const { type, identifier } = req.body || {};
+    const { type } = req.body || {};
+    const identifierRaw = (req.body && req.body.identifier) || '';
+    const idNorm = normalizeIdentifier(identifierRaw);
+    const identifier = type === 'EMAIL' ? idNorm.email : idNorm.phone;
     assert(type === 'EMAIL' || type === 'PHONE', 'type must be EMAIL or PHONE');
     assert(typeof identifier === 'string' && identifier.trim().length > 3, 'identifier required');
 
@@ -80,7 +109,10 @@ export async function requestOtp(req, res, next) {
 // Generic OTP verify (creates user if missing)
 export async function verifyOtp(req, res, next) {
   try {
-    const { type, identifier, code, referralCode } = req.body || {};
+    const { type, code, referralCode } = req.body || {};
+    const identifierRaw = (req.body && req.body.identifier) || '';
+    const idNorm = normalizeIdentifier(identifierRaw);
+    const identifier = type === 'EMAIL' ? idNorm.email : idNorm.phone;
     assert(type === 'EMAIL' || type === 'PHONE', 'type must be EMAIL or PHONE');
     assert(typeof identifier === 'string', 'identifier required');
     assert(typeof code === 'string' && code.length >= 4, 'code required');
@@ -144,7 +176,10 @@ export async function verifyOtp(req, res, next) {
 // Signup: create account, send phone OTP to verify phone, no token yet
 export async function signup(req, res, next) {
   try {
-    const { username, email, phone, password, referralCode } = req.body || {};
+    const { password, referralCode } = req.body || {};
+    const username = normalizeUsername(req.body?.username);
+    const email = normalizeEmail(req.body?.email);
+    const phone = normalizePhone(req.body?.phone);
     assert(username && typeof username === 'string', 'username required');
     assert(email || phone, 'email or phone required');
     assert(password, 'password required');
@@ -153,6 +188,16 @@ export async function signup(req, res, next) {
     const data = { username, passwordHash };
     if (email) data.email = email;
     if (phone) data.phone = phone;
+
+    // Proactive availability checks to avoid ambiguous P2002 errors
+    const [u1, u2, u3] = await Promise.all([
+      prisma.user.findUnique({ where: { username } }),
+      email ? prisma.user.findUnique({ where: { email } }) : Promise.resolve(null),
+      phone ? prisma.user.findUnique({ where: { phone } }) : Promise.resolve(null)
+    ]);
+    assert(!u1, 'Username already in use', 409);
+    assert(!u2, 'Email already in use', 409);
+    assert(!u3, 'Phone already in use', 409);
 
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({ data });
@@ -208,8 +253,9 @@ export async function signup(req, res, next) {
 // Verify phone OTP: mark phone as verified and return JWT to allow set-pin
 export async function verifyPhoneOtp(req, res, next) {
   try {
-    const { phone, code } = req.body || {};
-    assert(typeof phone === 'string', 'phone required');
+    const { code } = req.body || {};
+    const phone = normalizePhone(req.body?.phone);
+    assert(typeof phone === 'string' && phone, 'phone required');
     assert(typeof code === 'string', 'code required');
 
     const user = await prisma.user.findUnique({ where: { phone } });
@@ -249,7 +295,10 @@ export async function setTransactionPin(req, res, next) {
 // Login with password or OTP (email/phone based on identifier)
 export async function login(req, res, next) {
   try {
-    const { identifier, password, code } = req.body || {};
+    const { password, code } = req.body || {};
+    const identifierRaw = (req.body && req.body.identifier) || '';
+    const { email: idEmail, phone: idPhone } = normalizeIdentifier(identifierRaw);
+    const identifier = idEmail || idPhone;
     assert(identifier, 'identifier required');
 
     const user = await findUserByIdentifier(identifier);
@@ -258,7 +307,7 @@ export async function login(req, res, next) {
     if (password) {
       assert(await verifyPassword(password, user.passwordHash), 'Invalid credentials', 401);
     } else if (code) {
-      const type = identifier.includes('@') ? 'EMAIL' : 'PHONE';
+      const type = idEmail ? 'EMAIL' : 'PHONE';
       const otp = await prisma.oTP.findFirst({
         where: { type, identifier, consumedAt: null, expiresAt: { gt: new Date() } },
         orderBy: { createdAt: 'desc' }
