@@ -1,0 +1,74 @@
+services:
+  - type: web
+    name: mlm-auth-api
+    env: node
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: npm ci && npm run prisma:generate
+    startCommand: npm run prisma:deploy && npm start
+    envVars:
+      # Set these in Render dashboard or via an Environment Group
+      - key: NODE_ENV
+        value: production
+      - key: APP_NAME
+        value: MLM Auth
+      - key: APP_URL
+        # Replace with your Render service URL (e.g., https://mlm-auth-api.onrender.com)
+        value: https://REPLACE_WITH_RENDER_URL
+      - key: DATABASE_URL
+        # MySQL connection string (e.g., from Planetscale/AWS RDS)
+        value: mysql://USER:PASSWORD@HOST:3306/DBNAME
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REAUTH_EXPIRES_IN
+        value: 10m
+      - key: USD_INR_RATE
+        value: "83"
+      - key: TOKEN_PRICE_USD
+        value: "1"
+      - key: PLAN_STARTER_USD
+        value: "10"
+      - key: PLAN_GROWTH_USD
+        value: "25"
+      - key: PLAN_PRO_USD
+        value: "50"
+      - key: PLAN_ELITE_USD
+        value: "100"
+      # Optional integrations; leave empty or set as needed
+      - key: TWILIO_ACCOUNT_SID
+        value: ""
+      - key: TWILIO_AUTH_TOKEN
+        value: ""
+      - key: TWILIO_FROM_NUMBER
+        value: ""
+      - key: SMTP_HOST
+        value: ""
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        value: ""
+      - key: SMTP_PASS
+        value: ""
+      - key: SMTP_FROM_EMAIL
+        value: no-reply@example.com
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
+      - key: RAZORPAY_WEBHOOK_SECRET
+        value: ""
+      - key: RAZORPAY_ACCOUNT_NUMBER
+        value: ""
+      - key: STRIPE_WEBHOOK_SECRET
+        value: ""
+      - key: MIN_WITHDRAW_AMOUNT
+        value: "100"
+      - key: WITHDRAW_ADMIN_THRESHOLD
+        value: "5000"
+      - key: MATRIX_CHILD_LIMIT
+        value: "8"

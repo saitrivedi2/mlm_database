@@ -198,6 +198,23 @@ logout
 
 ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
 _________________________________________________
+## Deployment: Render Web Service
+
+- Ensure your Prisma migrations are committed (we’ve removed `prisma/migrations` from `.gitignore`).
+- Provision a MySQL database (e.g., PlanetScale/AWS RDS) and get a `DATABASE_URL`.
+- Push this repo to a Git host (GitHub/GitLab/Bitbucket).
+- On Render, “New +” → “Blueprint” and select this repo; it will pick up `render.yaml`.
+- In Render, set required environment variables:
+  - `DATABASE_URL` (MySQL), `JWT_SECRET`, and any optional SMTP/Twilio/Payment keys.
+- Render uses:
+  - build: `npm ci && npm run prisma:generate`
+  - start: `npm run prisma:deploy && npm start`
+- Health check path: `/health` (already implemented).
+
+Notes
+- The server reads `PORT` from the environment (Render sets this automatically).
+- Update `APP_URL` in Render to your service URL for correct CORS behavior.
+- Node version is pinned via `engines.node` in `package.json` (>=18 <23).
 ## Wallet & Payments
 
 - Auth uses the HTTP-only `access_token` cookie that login/OTP endpoints set. Ensure your API client sends cookies (`credentials: 'include'` in fetch/Axios `withCredentials: true`).
