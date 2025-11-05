@@ -46,11 +46,13 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     if (allowAll || corsOrigins.length === 0) return callback(null, true);
     if (corsOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'), false);
+    // Not allowed: do not throw to avoid 500s; simply disable CORS for this request
+    return callback(null, false);
   },
   credentials: env.CORS_CREDENTIALS,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));

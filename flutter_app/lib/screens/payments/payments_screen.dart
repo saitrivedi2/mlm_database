@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../core/payments_repository.dart';
 import '../../core/wallet_repository.dart';
 import '../../core/models.dart';
 import 'withdraw_screen.dart';
+import 'purchases_screen.dart';
 
 final _plansProvider = FutureProvider<List<PlanItem>>((ref) async => PaymentsRepository().getPlans());
 
@@ -41,16 +43,19 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       final amt = double.tryParse(_amount.text.trim()) ?? 0;
       final repo = PaymentsRepository();
       final order = await repo.addFundsOrder(amount: amt);
+      final cfg = await repo.getPublicConfig();
       // Minimal checkout example - normally pass key from server or env
       final options = {
-        'key': 'rzp_test_xxxxxxxx', // server-side Razorpay key configured on backend actually charges via webhook
+        'key': cfg['razorpayKeyId'] ?? 'rzp_test_xxxxxxxx',
         'amount': (amt * 100).toInt(),
         'name': 'Wallet Top-up',
         'order_id': order['order']?['id'],
         'description': 'Add funds',
         'timeout': 180,
       };
-      _razorpay.open(options);
+      if (!kIsWeb) {
+        _razorpay.open(options);
+      }
       if (mounted) ref.invalidate(_plansProvider);
       if (mounted) ref.invalidate(_walletFutureProvider);
     } catch (e) {
@@ -85,6 +90,15 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                 icon: const Icon(Icons.outbox),
                 label: const Text('Withdraw'),
               ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PurchasesScreen())),
+                icon: const Icon(Icons.receipt_long),
+                label: const Text('Purchases'),
+              ),
+              const SizedBox(width: 8),
+              if (kIsWeb)
+                const Text('(Razorpay checkout disabled on web demo)')
             ],
           ),
           const Divider(height: 32),

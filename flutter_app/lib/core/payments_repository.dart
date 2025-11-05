@@ -9,6 +9,14 @@ import 'models.dart';
 class PaymentsRepository {
   final Dio _dio = ApiClient.I.client;
 
+  Future<Map<String, dynamic>> getPublicConfig() async {
+    final res = await _dio.get('/payments/config');
+    if (res.statusCode == 200 && res.data['ok'] == true) {
+      return Map<String, dynamic>.from(res.data);
+    }
+    throw DioException(requestOptions: res.requestOptions, response: res);
+  }
+
   Future<List<PlanItem>> getPlans() async {
     final res = await _dio.get('/payments/plans');
     if (res.statusCode == 200 && res.data is Map && res.data['ok'] == true) {

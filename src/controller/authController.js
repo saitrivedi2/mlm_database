@@ -156,11 +156,20 @@ export async function signup(req, res, next) {
 
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({ data });
-      const placed = await assignSponsorAndPlaceUser({ userId: created.id, referralCode }, tx);
-      if (placed?.sponsorId) {
-        await recalculateQualificationLevel(placed.sponsorId, tx);
+      try {
+        const placed = await assignSponsorAndPlaceUser({ userId: created.id, referralCode }, tx);
+        if (placed?.sponsorId) {
+          await recalculateQualificationLevel(placed.sponsorId, tx);
+        }
+        return placed;
+      } catch (placementErr) {
+        // Fallback: ensure user has a basic matrix path to avoid signup failure
+        const fallback = await tx.user.update({
+          where: { id: created.id },
+          data: { path: `/${created.id}/`, matrixLevel: 0, positionIndex: 0 }
+        });
+        return fallback;
       }
-      return placed;
     });
 
     if (phone) {

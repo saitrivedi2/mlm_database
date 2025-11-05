@@ -744,3 +744,14 @@ export async function downloadTokenPurchaseInvoice(req, res, next) {
     res.send(Buffer.from(purchase.invoice.pdf));
   } catch (err) { next(err); }
 }
+
+// Public config for client apps (exposes only non-secret values)
+export async function publicPaymentConfig(req, res, next) {
+  try {
+    res.json({
+      ok: true,
+      razorpayKeyId: env.RAZORPAY_KEY_ID || null,
+      currency: 'INR'
+    });
+  } catch (err) { next(err); }
+}
